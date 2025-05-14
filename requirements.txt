@@ -1,0 +1,10 @@
+streamlit
+feedparser
+pandas
+requests
+python-docx
+textblob
+altair
+pytz
+xlsxwriter
+openpyxl

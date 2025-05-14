@@ -1,0 +1,35 @@
+html, body, .stApp {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #001f3f;
+    color: orange;
+}
+h1, h2, h3, h4 {
+    color: orange;
+}
+.stSidebar {
+    background-color: #081a2c !important;
+}
+.stTextInput > div > div > input,
+.stMultiSelect, .stSlider {
+    background-color: #002b5c;
+    color: orange;
+    border: 1px solid #ff851b;
+}
+.stDownloadButton > button, .stButton > button {
+    background-color: #ff851b;
+    color: rgb(10, 82, 190);
+    font-weight: bold;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+}
+.stDownloadButton > button:hover, .stButton > button:hover {
+    background-color: #ff6300;
+}
+.stDataFrame {
+    background-color: #002b5c;
+    color: orange;
+}
+table, th, td {
+    border: 1px solid #ff851b;
+    padding: 0.5rem;
+}
