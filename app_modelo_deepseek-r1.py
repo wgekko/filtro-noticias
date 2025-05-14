@@ -51,69 +51,56 @@ def analyze_sentiment(text: str) -> str:
     else:
         return "Neutra"
 
-
-# Zona horaria de Argentina
-argentina_tz = pytz.timezone('America/Argentina/Buenos_Aires')
-
+@st.cache_data(ttl=1800)
 def fetch_papers(feeds, total_max_n):
     rows = []
-    per_source = max(5, total_max_n // len(feeds))  # Al menos 5 por fuente
-    
+    per_source = max(5, total_max_n // len(feeds))
+    argentina_tz = pytz.timezone('America/Argentina/Buenos_Aires') # Definir aquí o pasar como argumento
+
     for tag in feeds:
         parsed = feedparser.parse(RSS_MAP[tag])
+        if not parsed.entries:
+            # Opcional: informar al usuario que un feed está vacío o no accesible
+            # st.info(f"No se encontraron entradas recientes para {tag} o el feed no está accesible.")
+            pass # Puedes decidir si quieres mostrar un mensaje
+
         count = 0
         for e in parsed.entries:
             if count >= per_source:
                 break
+
             summary = e.summary.replace("\n", " ") if 'summary' in e else ""
-            tldr = ollama_tldr(summary)
-            sentiment = analyze_sentiment(tldr)
+            tldr = ollama_tldr(summary) # Asumo que quieres el resumen del 'summary' original
+            sentiment = analyze_sentiment(tldr) # Analizar sentimiento del resumen corto
 
-            # Convertimos la fecha de publicación a la zona horaria de Argentina
-            pub_date_str = e.published[:10] if 'published' in e else ""
-            if pub_date_str:
-                # Convertimos la fecha en un objeto datetime
-                pub_date = datetime.strptime(pub_date_str, "%Y-%m-%d")
-                pub_date = argentina_tz.localize(pub_date)  # Localizamos la fecha en la zona horaria de Argentina
-                pub_date = pub_date.strftime("%Y-%m-%d %H:%M:%S")  # Lo formateamos como string
-
+            pub_date_final_str = "" # Valor por defecto
+            if 'published_parsed' in e and e.published_parsed:
+                try:
+                    # Crear un datetime naive a partir de la tupla de feedparser
+                    dt_naive = datetime.fromtimestamp(time.mktime(e.published_parsed))
+                    # Localizar a UTC (asumiendo que las fechas de feedparser pueden ser UTC o sin tz)
+                    # y luego convertir a Argentina
+                    dt_argentina = pytz.utc.localize(dt_naive).astimezone(argentina_tz)
+                    #pub_date_final_str = dt_argentina.strftime("%Y-%m-%d %H:%M:%S")                    
+                    pub_date_final_str = dt_argentina.strftime("%d-%m-%Y %H:%M")
+                except Exception as ex:
+                    # Si falla la conversión detallada, usar solo la fecha como antes
+                    pub_date_final_str = e.published[:10] if 'published' in e else "Fecha no disponible"
+                    # st.warning(f"Error convirtiendo fecha para {e.title}: {ex}")
+            elif 'published' in e:
+                 pub_date_final_str = e.published[:10] # Fallback a solo fecha si no hay 'published_parsed'
+            else:
+                pub_date_final_str = "Fecha no disponible"
             rows.append({
                 "source": tag,
-                "date": pub_date,
+                "date": pub_date_final_str,
                 "title": e.title,
                 "link": e.link,
                 "tldr": tldr,
                 "sentiment": sentiment
             })
             count += 1
-            time.sleep(0.1)
-    return pd.DataFrame(rows)
-
-@st.cache_data(ttl=3600)
-def fetch_papers(feeds, total_max_n):
-    rows = []
-    per_source = max(5, total_max_n // len(feeds))  # Al menos 5 por fuente
-    
-    for tag in feeds:
-        parsed = feedparser.parse(RSS_MAP[tag])
-        count = 0
-        for e in parsed.entries:
-            if count >= per_source:
-                break
-            summary = e.summary.replace("\n", " ") if 'summary' in e else ""
-            tldr = ollama_tldr(summary)
-            sentiment = analyze_sentiment(tldr)
-            pub_date = e.published[:10] if 'published' in e else ""
-            rows.append({
-                "source": tag,
-                "date": pub_date,
-                "title": e.title,
-                "link": e.link,
-                "tldr": tldr,
-                "sentiment": sentiment
-            })
-            count += 1
-            time.sleep(0.1)
+            time.sleep(0.1) # Mantener para no sobrecargar los servidores RSS
     return pd.DataFrame(rows)
 
 def to_excel(df):
@@ -179,8 +166,6 @@ max_n = st.sidebar.slider("📑 Noticias por fuente", 5, 30, 10)
 if st.sidebar.button("Actualizar", icon=":material/autorenew:"):
     st.cache_data.clear()
 
-
-
 df = fetch_papers(tuple(sel), max_n)
 
 #query = st.text_input("🔍 Buscar por palabra clave")
@@ -196,22 +181,20 @@ if not df.empty:
     with st.container(border=True):
         # Reordenamos las columnas
         ordered_cols = ["source", "date", "title", "sentiment", "tldr", "link"]
-        df = df[[col for col in ordered_cols if col in df.columns]]
-        
+        df = df[[col for col in ordered_cols if col in df.columns]]        
         #st.subheader("📋 Tabla de Noticias")
-        #st.dataframe(df, use_container_width=True)
-    
+        #st.dataframe(df, use_container_width=True)    
     with st.container(border=True):        
         st.dataframe(df, use_container_width=True)
         st.subheader("Descargar la información en distintos formatos")
         col1, col2, col3 = st.columns(3, vertical_alignment="center")
         with col1:
             csv = df.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button("CSV", csv, "noticias.csv", mime="text/csv", icon=":material/download:")
+            st.download_button("Descargar CSV", csv, "noticias.csv", mime="text/csv", icon=":material/download:")
         with col2:
-            st.download_button("Excel", to_excel(df), "noticias.xlsx", icon=":material/download:" )        
+            st.download_button("Descargar Excel", to_excel(df), "noticias.xlsx", icon=":material/download:" )        
         with col3:        
-            st.download_button("Word", to_word(df), "noticias.docx", icon=":material/download:" )     
+            st.download_button("Descargar Word", to_word(df), "noticias.docx", icon=":material/download:" )     
     
     
     with st.container(border=True):   
@@ -225,32 +208,7 @@ if not df.empty:
             if st.button("Enviar notificación por Telegram",  icon=":material/send:"):
                 send_telegram("Nuevas noticias disponibles. Revisá Radar Económico.")
                 
-    with st.container(border=True):
-        
-        #st.subheader("Sentimiento por Fuente")
-        #if not df.empty:
-        #    import altair as alt
-
-        #    # Agrupamos los datos
-        #    chart_data = df.groupby(["source", "sentiment"]).size().reset_index(name="count")
-
-        #    # Creamos un gráfico de barras agrupadas por fuente y sentiment
-        #    chart = alt.Chart(chart_data).mark_bar().encode(
-        #        x=alt.X('source:N', title='Fuente', axis=alt.Axis(labelAngle=0)),
-        #        y=alt.Y('count:Q', title='Cantidad'),
-        #        color=alt.Color('sentiment:N', title="Sentimiento", scale=alt.Scale(
-        #            domain=["Positiva", "Neutra", "Negativa"],
-        #            range=["#2ecc71", "#f1c40f", "#e74c3c"]
-        #        )),
-        #        tooltip=["source", "sentiment", "count"]
-        #    ).properties(
-        #        height=400,
-        #        width=600  # O déjalo sin esto y usa use_container_width=True
-        #    )
-
-        #    # Mostrar el gráfico ajustado al contenedor
-        #    st.altair_chart(chart, use_container_width=True)
-                
+    with st.container(border=True):                
         st.subheader("Sentimiento por Fuente")
         if not df.empty:
             import altair as alt
@@ -274,7 +232,7 @@ if not df.empty:
             # Mostrar el gráfico ajustado al contenedor
             st.altair_chart(chart, use_container_width=True)
 
-    st.caption("Resúmenes con IA local (Deepseek-r1:14b en Ollama)")
+    st.caption("Resúmenes con IA local (Gemma 3:4B en Ollama)")
 else:
     st.warning("No se encontraron noticias para mostrar.", icon=":material/warning:")
 
