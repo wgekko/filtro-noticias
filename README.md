@@ -24,5 +24,5 @@ Una aplicación construida con **Streamlit** que recopila, resume y analiza el s
 1. Clona este repositorio:
 
 ```bash
-git clone https://github.com/tuusuario/radar-economico.git
+git clone [https://github.com/tuusuario/radar-economico.git](https://github.com/wgekko/filtro-noticias.git)
 cd radar-economico
