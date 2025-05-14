@@ -18,6 +18,14 @@ Una aplicación construida con **Streamlit** que recopila, resume y analiza el s
 - 📄 Exportación a: CSV, Excel y Word.
 
 ---
+video demo 
+
+
+https://github.com/user-attachments/assets/2e5fa2e6-e3d7-4239-a85a-004435e6ff60
+
+
+
+----
 
 ## 📦 Instalación
 
